@@ -33,7 +33,8 @@ export interface OmpExtensionAPI {
     def: { description: string; handler: (args: string, ctx: unknown) => unknown },
   ): void;
   registerTool(def: Record<string, unknown>): void;
-  typebox: { Object(props: Record<string, unknown>): unknown };
+  /** Full TypeBox module (like `import { Type } from "typebox"`): Type.Object(...). */
+  typebox: { Type: { Object(props: Record<string, unknown>): unknown } };
   logger?: { info?(...args: unknown[]): void; warn?(...args: unknown[]): void };
 }
 

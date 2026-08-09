@@ -110,9 +110,18 @@ export default function evolverOmp(pi: OmpExtensionAPI) {
       }
 
       if (additions.length === 0) return;
-      const systemPrompt = strField(asRecord(event), "systemPrompt");
-      if (!systemPrompt) return;
-      return { systemPrompt: systemPrompt + "\n\n" + additions.join("\n\n") };
+
+      // omp: event.systemPrompt is string[] and the result chains parts
+      // ({ systemPrompt?: string[] }); upstream pi: a single string that is
+      // replaced wholesale. Handle both so the same file runs in each harness.
+      const systemPrompt = asRecord(event).systemPrompt;
+      if (Array.isArray(systemPrompt)) {
+        return { systemPrompt: [...(systemPrompt as string[]), ...additions] };
+      }
+      if (typeof systemPrompt === "string" && systemPrompt) {
+        return { systemPrompt: systemPrompt + "\n\n" + additions.join("\n\n") };
+      }
+      return undefined;
     } catch {
       return undefined;
     }
@@ -163,7 +172,7 @@ export default function evolverOmp(pi: OmpExtensionAPI) {
     label: "Evolver Status",
     description:
       "Report the evolver (GEP self-evolution engine) integration status: install root, version, CLI availability, recall mode, MCP and proxy configuration.",
-    parameters: pi.typebox.Object({}),
+    parameters: pi.typebox.Type.Object({}),
     async execute(_toolCallId, _params, _signal, _onUpdate, _ctx) {
       const config = ensureConfig();
       const status = await buildStatus(config, process.cwd());

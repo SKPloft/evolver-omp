@@ -52,7 +52,9 @@ function stubPi(): {
         tools.push(String(def.name));
       },
       typebox: {
-        Object: (props: Record<string, unknown>) => ({ type: "object", properties: props }),
+        Type: {
+          Object: (props: Record<string, unknown>) => ({ type: "object", properties: props }),
+        },
       },
       logger: { info: () => {}, warn: () => {} },
     },
