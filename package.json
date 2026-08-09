@@ -1,0 +1,31 @@
+{
+  "name": "evolver-omp",
+  "version": "0.1.0",
+  "description": "Evolver (GEP-powered self-evolution engine) adapted to the omp coding agent: session-start memory injection, opt-in per-prompt distilled recall, edit-signal detection, outcome recording, evolver MCP tools and /evolver command.",
+  "type": "module",
+  "private": true,
+  "license": "GPL-3.0-or-later",
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "omp",
+    "oh-my-pi",
+    "pi",
+    "evolver",
+    "evomap",
+    "gep",
+    "memory",
+    "self-evolution",
+    "agent"
+  ],
+  "omp": {
+    "extensions": [
+      "./extensions/index.ts"
+    ]
+  },
+  "scripts": {
+    "setup": "node scripts/setup.mjs",
+    "test": "bun test ./test/smoke.ts"
+  }
+}

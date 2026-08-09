@@ -1,0 +1,38 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "evolver-omp",
+  "owner": {
+    "name": "evolver-omp contributors"
+  },
+  "metadata": {
+    "description": "Evolver (GEP-powered self-evolution engine) adapted to the omp coding agent. Claude Code-compatible fallback catalog — omp prefers .omp-plugin/marketplace.json when both are present.",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "evolver-omp",
+      "description": "Evolver for omp: session-start memory injection, opt-in per-prompt distilled recall (EVOLVER_RECALL_MODE), edit-signal detection, outcome recording, evolver MCP tools and /evolver command.",
+      "source": "./",
+      "version": "0.1.0",
+      "author": {
+        "name": "evolver-omp contributors"
+      },
+      "homepage": "https://github.com/EvoMap/evolver",
+      "license": "GPL-3.0-or-later",
+      "category": "development",
+      "keywords": [
+        "memory",
+        "evolution",
+        "gep",
+        "genes",
+        "capsules",
+        "agent"
+      ],
+      "tags": [
+        "evolver",
+        "self-evolution",
+        "memory"
+      ]
+    }
+  ]
+}
