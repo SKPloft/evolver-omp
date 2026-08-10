@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 // evolver-mcp.cjs — launcher for the @evomap/evolver-mcp stdio server.
 //
-// setup.mjs writes omp MCP configs that point here instead of at a
-// machine-specific absolute path inside the evolver install, so the config
-// stays portable: the launcher resolves the evolver root with the same locator
-// the extension uses (scripts/locate-evolver.cjs) and execs the real server.
+// The plugin manifests (.omp-plugin/plugin.json for omp, .claude-plugin/plugin.json
+// for Claude Code) declare the evolver server with a ${OMP_PLUGIN_ROOT}/
+// ${CLAUDE_PLUGIN_ROOT}-relative path to this launcher, so the config stays
+// portable: the launcher resolves the evolver root with the same locator the
+// extension uses (scripts/locate-evolver.cjs) and execs the real server.
 //
 // Overrides:
 //   EVOLVER_MCP_STDIO  absolute path to the stdio.js entry (bypasses lookup)

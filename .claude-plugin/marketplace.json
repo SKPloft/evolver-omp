@@ -5,7 +5,7 @@
     "name": "evolver-omp contributors"
   },
   "metadata": {
-    "description": "Evolver (GEP-powered self-evolution engine) adapted to the omp coding agent. Claude Code-compatible fallback catalog — omp prefers .omp-plugin/marketplace.json when both are present.",
+    "description": "Evolver (GEP-powered self-evolution engine) adapted to the omp coding agent. Claude Code catalog — installs the evolver MCP server (extension hooks are omp/pi-specific and do not load in Claude Code). omp prefers .omp-plugin/marketplace.json when both are present.",
     "version": "0.1.0"
   },
   "plugins": [

@@ -1,0 +1,14 @@
+{
+  "$schema": "https://anthropic.com/claude-code/plugin.schema.json",
+  "name": "evolver-omp",
+  "version": "0.1.0",
+  "description": "Evolver for omp: session-start memory injection, opt-in per-prompt distilled recall, evolver MCP tools and /evolver command.",
+  "mcpServers": {
+    "evolver": {
+      "command": "node",
+      "args": [
+        "${OMP_PLUGIN_ROOT}/scripts/evolver-mcp.cjs"
+      ]
+    }
+  }
+}

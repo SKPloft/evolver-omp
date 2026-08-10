@@ -1,0 +1,14 @@
+{
+  "$schema": "https://anthropic.com/claude-code/plugin.schema.json",
+  "name": "evolver-omp",
+  "version": "0.1.0",
+  "description": "Evolver MCP tools for Claude Code. The full extension (session memory injection, /evolver command) is omp/pi-specific and does not load in Claude Code.",
+  "mcpServers": {
+    "evolver": {
+      "command": "node",
+      "args": [
+        "${CLAUDE_PLUGIN_ROOT}/scripts/evolver-mcp.cjs"
+      ]
+    }
+  }
+}

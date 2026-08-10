@@ -16,9 +16,9 @@
 // v2 deliberately dropped the v1 Stop/PostToolUse hook scripts (outcome
 // recording + signal detection now live in the evolver daemon), so there is
 // nothing to wire on session_shutdown or tool_result. The evolver_* MCP tools
-// come from the @evomap/evolver-mcp server, configured by scripts/setup.mjs
-// into omp's MCP config — the same split as Evolver's own installers (hooks
-// for lifecycle, MCP for tools).
+// come from the @evomap/evolver-mcp server, declared in .omp-plugin/plugin.json
+// and registered by omp's marketplace plugin loader — the same split as
+// Evolver's own installers (hooks for lifecycle, MCP for tools).
 import { spawn } from "node:child_process";
 import { createRequire } from "node:module";
 import { loadConfig } from "./config.ts";

@@ -170,4 +170,25 @@ describe("marketplace packaging", () => {
       expect(existsSync(path.join(PKG, entry))).toBe(true);
     }
   });
+
+  test("plugin.json manifests declare the evolver MCP server with root-relative launcher", () => {
+    const pkg = JSON.parse(readFileSync(path.join(PKG, "package.json"), "utf8")) as { version?: string };
+    for (const [dir, rootVar] of [
+      [".omp-plugin", "${OMP_PLUGIN_ROOT}"],
+      [".claude-plugin", "${CLAUDE_PLUGIN_ROOT}"],
+    ] as const) {
+      const manifest = JSON.parse(readFileSync(path.join(PKG, dir, "plugin.json"), "utf8")) as {
+        name?: string;
+        version?: string;
+        mcpServers?: Record<string, { command?: string; args?: string[] }>;
+      };
+      expect(manifest.name).toBe("evolver-omp");
+      expect(manifest.version).toBe(pkg.version);
+      const server = manifest.mcpServers?.evolver;
+      expect(server).toBeTruthy();
+      expect(server?.command).toBe("node");
+      expect(server?.args).toEqual([`${rootVar}/scripts/evolver-mcp.cjs`]);
+      expect(existsSync(path.join(PKG, "scripts", "evolver-mcp.cjs"))).toBe(true);
+    }
+  });
 });
