@@ -9,7 +9,7 @@
 //   4. marketplace catalog + package.json manifest validity
 import { describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -17,6 +17,7 @@ import path from "node:path";
 import factory from "../extensions/index.ts";
 import { loadConfig } from "../extensions/config.ts";
 import { cliPath, runInject } from "../extensions/hooks.ts";
+import { detectMcp } from "../extensions/status.ts";
 import type { OmpExtensionAPI } from "../extensions/types.ts";
 
 const require = createRequire(import.meta.url);
@@ -32,21 +33,28 @@ function stubPi(): {
   pi: OmpExtensionAPI;
   events: Record<string, Array<(event: unknown, ctx: unknown) => unknown>>;
   commands: string[];
+  commandHandlers: Record<string, (args: string, ctx: unknown) => unknown>;
   tools: string[];
 } {
   const events: Record<string, Array<(event: unknown, ctx: unknown) => unknown>> = {};
   const commands: string[] = [];
+  const commandHandlers: Record<string, (args: string, ctx: unknown) => unknown> = {};
   const tools: string[] = [];
   return {
     events,
     commands,
+    commandHandlers,
     tools,
     pi: {
       on(event: string, handler: (event: unknown, ctx: unknown) => unknown) {
         (events[event] ??= []).push(handler);
       },
-      registerCommand(name: string) {
+      registerCommand(
+        name: string,
+        def: { description: string; handler: (args: string, ctx: unknown) => unknown },
+      ) {
         commands.push(name);
+        commandHandlers[name] = def.handler;
       },
       registerTool(def: Record<string, unknown>) {
         tools.push(String(def.name));
@@ -90,6 +98,128 @@ describe("extension factory", () => {
     // session-start produced nothing yet, recall is off -> no injection
     const result = await handler({ prompt: "short" }, {});
     expect(result).toBeUndefined();
+  });
+
+  test("/evolver run reports a missing CLI instead of throwing", async () => {
+    // An install root without bin/evolver.js (or index.js) resolves to no CLI,
+    // so the run branch must report and return rather than spawn anything.
+    const fakeRoot = mkdtempSync(path.join(tmpdir(), "evolver-omp-root-"));
+    writeFileSync(
+      path.join(fakeRoot, "package.json"),
+      JSON.stringify({ name: "@evomap/evolver", version: "0.0.0" }),
+    );
+    const hadRoot = process.env.EVOLVER_ROOT;
+    const notices: string[] = [];
+    try {
+      process.env.EVOLVER_ROOT = fakeRoot;
+      const { pi, commandHandlers } = stubPi();
+      factory(pi);
+      await commandHandlers["evolver"]("run", {
+        cwd: PKG,
+        ui: { notify: (text: string) => notices.push(text) },
+      });
+    } finally {
+      if (hadRoot) process.env.EVOLVER_ROOT = hadRoot;
+      else delete process.env.EVOLVER_ROOT;
+      rmSync(fakeRoot, { recursive: true, force: true });
+    }
+    expect(notices.join("\n")).toContain("CLI not found");
+  });
+});
+
+describe("mcp status detection", () => {
+  /** A marketplace install copy: manifest (+ launcher unless omitted). */
+  function installCopy(root: string, withLauncher = true): void {
+    mkdirSync(path.join(root, ".omp-plugin"), { recursive: true });
+    writeFileSync(
+      path.join(root, ".omp-plugin", "plugin.json"),
+      JSON.stringify({
+        name: "evolver-omp",
+        mcpServers: {
+          evolver: { command: "node", args: ["${OMP_PLUGIN_ROOT}/scripts/evolver-mcp.cjs"] },
+        },
+      }),
+    );
+    if (!withLauncher) return;
+    mkdirSync(path.join(root, "scripts"), { recursive: true });
+    writeFileSync(path.join(root, "scripts", "evolver-mcp.cjs"), "// launcher\n");
+  }
+
+  function homeWithRegistry(home: string, installRoot: string): void {
+    mkdirSync(path.join(home, ".omp", "plugins"), { recursive: true });
+    writeFileSync(
+      path.join(home, ".omp", "plugins", "installed_plugins.json"),
+      JSON.stringify({
+        version: 2,
+        plugins: {
+          "evolver-omp@evolver-omp": [{ scope: "user", installPath: installRoot, version: "0.1.0" }],
+        },
+      }),
+    );
+  }
+
+  test("configured when the registry's install copy declares the server", () => {
+    const base = mkdtempSync(path.join(tmpdir(), "evolver-omp-mcp-ok-"));
+    try {
+      const installRoot = path.join(base, "install");
+      const home = path.join(base, "home");
+      installCopy(installRoot);
+      homeWithRegistry(home, installRoot);
+      expect(detectMcp(path.join(base, "project"), home)).toEqual({
+        state: "ok",
+        source: installRoot,
+        detail: path.join(installRoot, "scripts", "evolver-mcp.cjs"),
+      });
+    } finally {
+      rmSync(base, { recursive: true, force: true });
+    }
+  });
+
+  test("broken when the registered install copy lost its launcher", () => {
+    const base = mkdtempSync(path.join(tmpdir(), "evolver-omp-mcp-broken-"));
+    try {
+      const installRoot = path.join(base, "install");
+      const home = path.join(base, "home");
+      installCopy(installRoot, false);
+      homeWithRegistry(home, installRoot);
+      const status = detectMcp(path.join(base, "project"), home);
+      expect(status.state).toBe("broken");
+      expect(status.detail).toContain("launcher missing");
+    } finally {
+      rmSync(base, { recursive: true, force: true });
+    }
+  });
+
+  test("configured from a hand-written mcp.json entry (pre-marketplace installs)", () => {
+    const base = mkdtempSync(path.join(tmpdir(), "evolver-omp-mcp-legacy-"));
+    try {
+      const project = path.join(base, "project");
+      mkdirSync(path.join(project, ".omp"), { recursive: true });
+      writeFileSync(
+        path.join(project, ".omp", "mcp.json"),
+        JSON.stringify({ mcpServers: { evolver: { command: "node", args: ["launcher.cjs"] } } }),
+      );
+      expect(detectMcp(project, path.join(base, "home"))).toEqual({
+        state: "ok",
+        source: path.join(project, ".omp", "mcp.json"),
+        detail: "hand-written mcp.json entry",
+      });
+    } finally {
+      rmSync(base, { recursive: true, force: true });
+    }
+  });
+
+  test("absent when nothing installs or declares the server", () => {
+    const base = mkdtempSync(path.join(tmpdir(), "evolver-omp-mcp-absent-"));
+    try {
+      expect(detectMcp(path.join(base, "project"), path.join(base, "home"))).toEqual({
+        state: "absent",
+        source: null,
+        detail: "no installed plugin registers it",
+      });
+    } finally {
+      rmSync(base, { recursive: true, force: true });
+    }
   });
 });
 
