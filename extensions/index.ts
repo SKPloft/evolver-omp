@@ -22,7 +22,7 @@
 import { spawn } from "node:child_process";
 import { createRequire } from "node:module";
 import { loadConfig } from "./config.ts";
-import { pickString, runInject } from "./hooks.ts";
+import { cliPath, pickString, runInject } from "./hooks.ts";
 import { buildStatus, formatStatus } from "./status.ts";
 import { asRecord, strField } from "./types.ts";
 import type { EvolverConfig, OmpExtensionAPI } from "./types.ts";
