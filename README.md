@@ -15,9 +15,19 @@ Installed as an omp **marketplace plugin** (the standard omp mechanism): the ext
 | `session_start` | `evolver inject session-start` | injects recent evolution memory into the system prompt |
 | `before_agent_start` | `evolver inject prompt-recall` | opt-in per-prompt distilled GEP hints (`EVOLVER_RECALL_MODE=enforce\|shadow`) |
 | any time | `evolver_*` MCP tools | full Evolver tool surface via `@evomap/evolver-mcp` |
-| `/evolver` | status + manual `run` | integration diagnostics and manual evolution cycle |
+| `/evolver` | status · `capabilities` · `help` | integration diagnostics, per-runtime capability matrix, v2 usage |
 
 Everything is fail-open: if evolver is missing or broken, the hooks return `{}` and the session is unaffected.
+
+## Using Evolver v2
+
+Evolver v2 is a memory/evolution service, not a one-shot command. A bare `evolver` and `evolver run` are v1 compatibility shims that exit 2 without starting a task ("no safe V2 equivalent"), which is why this plugin no longer spawns one. What the pieces actually do here:
+
+- **Automatic**: `session_start` injects recent evolution memory into the system prompt; `before_agent_start` adds distilled per-prompt hints when `EVOLVER_RECALL_MODE=shadow|enforce`.
+- **Agent-driven (MCP)**: the `evolver_*` tools search local experience (`evolver_asset_search`, `evolver_recall`), report reuse outcomes (`evolver_asset_reuse_result`) and capture verified work (`evolver_distill_conversation`, `evolver_gep_build` / `evolver_asset_publish`) — the intended loop is search → reuse → capture.
+- **In-session checks**: `/evolver` (status), `/evolver capabilities`, `/evolver help`.
+- **Background evolution**: `evolver autoexec` is a resident daemon (empty allowlist = deny by default, and it needs a runner plus containment), and `evolver cycle --repo <path>` runs a repo-scoped cycle. Check the capability matrix first: in 2.0.x `execute` is `unsupported` for most runtimes and `experimental` at best, and an `unsupported` cell is not something to work around.
+- **Read-only CLI**: `evolver status`, `evolver daily`, `evolver cycles`.
 
 ## Install (standard omp marketplace)
 
@@ -41,7 +51,7 @@ Then restart omp (extension modules load at startup; `/reload-plugins` refreshes
 
 ```bash
 /mcp list        # 'evolver-omp:evolver' should appear; /mcp test evolver-omp:evolver
-/evolver         # status; /evolver run triggers an evolution cycle
+/evolver         # status; /evolver capabilities for the runtime matrix; /evolver help for v2 usage
 EVOLVER_RECALL_MODE=enforce omp   # opt into per-prompt recall
 ```
 

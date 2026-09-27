@@ -343,7 +343,7 @@ function cmdInstall(opts) {
   console.log("[omp] Installation complete. Next steps:");
   console.log("[omp]   1. Restart omp (extension modules load at startup); /reload-plugins refreshes MCP servers.");
   console.log("[omp]   2. Run /mcp list — the 'evolver-omp:evolver' server should appear; /mcp test evolver-omp:evolver to verify.");
-  console.log("[omp]   3. Run /evolver to see status; /evolver run triggers an evolution cycle.");
+  console.log("[omp]   3. Run /evolver for status, /evolver capabilities for the runtime matrix, /evolver help for v2 usage.");
   console.log("[omp]   4. Opt into per-prompt distilled recall: set EVOLVER_RECALL_MODE=enforce (or shadow to preview).");
   console.log("[omp]   5. Verify the install: node scripts/setup.mjs verify");
 }
