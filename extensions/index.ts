@@ -19,10 +19,10 @@
 // come from the @evomap/evolver-mcp server, declared in .omp-plugin/plugin.json
 // and registered by omp's marketplace plugin loader — the same split as
 // Evolver's own installers (hooks for lifecycle, MCP for tools).
-import { spawn } from "node:child_process";
 import { createRequire } from "node:module";
+import { runCapabilities } from "./capabilities.ts";
 import { loadConfig } from "./config.ts";
-import { cliPath, pickString, runInject } from "./hooks.ts";
+import { pickString, runInject } from "./hooks.ts";
 import { buildStatus, formatStatus } from "./status.ts";
 import { asRecord, strField } from "./types.ts";
 import type { EvolverConfig, OmpExtensionAPI } from "./types.ts";
@@ -32,6 +32,20 @@ const require = createRequire(import.meta.url);
 const locate = require("../scripts/locate-evolver.cjs") as {
   findEvolverRoot: () => string | null;
 };
+
+const USAGE = [
+  "[evolver] /evolver [status|capabilities|help]",
+  "[evolver] status: integration diagnostics — evolver root, recall mode, MCP wiring, proxy, git",
+  "[evolver] capabilities: per-runtime ingest/inject/execute matrix (read-only CLI call)",
+  "[evolver] automatic in this session: session-start memory hint, opt-in per-prompt recall (EVOLVER_RECALL_MODE=shadow|enforce), evolver_* MCP tools for search/reuse/capture",
+  "[evolver] background evolution: `evolver autoexec` (resident daemon; empty allowlist denies by default) or `evolver cycle --repo <path>` — check /evolver capabilities first",
+  "[evolver] read-only CLI checks: `evolver status`, `evolver daily`, `evolver cycles`",
+].join("\n");
+
+const RUN_REMOVED = [
+  "[evolver] `run` was Evolver v1's one-shot generator; v2 keeps it only as a compatibility shim that exits 2 without starting a task, so this plugin no longer spawns it.",
+  "[evolver] Run /evolver capabilities to see which runtimes can execute here, `evolver autoexec` for the resident daemon, or `evolver cycle --repo <path>` for a repo-scoped cycle.",
+].join("\n");
 
 function readSessionId(ctx: unknown): string {
   const sessionManager = asRecord(asRecord(ctx).sessionManager);
@@ -130,39 +144,31 @@ export default function evolverOmp(pi: OmpExtensionAPI) {
   // --- /evolver command -----------------------------------------------------
   pi.registerCommand("evolver", {
     description:
-      "Evolver status and manual operations. Use 'run' to trigger an evolution cycle.",
+      "Evolver status, per-runtime capability matrix and v2 usage. Evolver v2 dropped the one-shot `run`.",
     handler: async (args, ctx) => {
       const config = ensureConfig();
       const arg = args.trim().toLowerCase();
       const ui = asRecord(ctx).ui;
 
-      if (arg === "run") {
-        const cli = cliPath(config.root);
-        if (!cli) {
-          notify(ui, "[evolver] CLI not found — install @evomap/evolver", "error");
-          return;
-        }
-        notify(ui, "[evolver] running evolution cycle...", "info");
-        const child = spawn(
-          config.nodeBin,
-          [cli, "run"],
-          { cwd: sessionCwd(ctx), stdio: ["ignore", "pipe", "pipe"] },
-        );
-        let output = "";
-        child.stdout?.on("data", (chunk) => { output += String(chunk); });
-        child.stderr?.on("data", (chunk) => { output += String(chunk); });
-        child.on("error", (err) => {
-          notify(ui, `[evolver] run failed: ${err.message}`, "error");
-        });
-        child.on("close", (code) => {
-          const tail = output.trim().split("\n").slice(-6).join("\n");
-          notify(ui, `[evolver] run exit ${code ?? "?"}\n${tail}`, code === 0 ? "info" : "warning");
-        });
+      if (arg === "help" || arg === "?") {
+        notify(ui, USAGE, "info");
         return;
       }
-
-      const status = await buildStatus(config, sessionCwd(ctx));
-      notify(ui, formatStatus(status), "info");
+      if (arg === "run") {
+        // Evolver v2 keeps `run` only as a v1 compatibility shim that exits 2
+        // without starting anything, so there is no one-shot to drive here.
+        notify(ui, RUN_REMOVED, "warning");
+        return;
+      }
+      if (arg === "capabilities" || arg === "caps") {
+        notify(ui, runCapabilities(config, sessionCwd(ctx)), "info");
+        return;
+      }
+      if (arg === "" || arg === "status") {
+        notify(ui, formatStatus(await buildStatus(config, sessionCwd(ctx))), "info");
+        return;
+      }
+      notify(ui, `[evolver] unknown argument '${arg}'\n${USAGE}`, "warning");
     },
   });
 

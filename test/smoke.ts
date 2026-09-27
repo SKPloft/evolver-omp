@@ -15,6 +15,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 
 import factory from "../extensions/index.ts";
+import { formatCapabilities } from "../extensions/capabilities.ts";
 import { loadConfig } from "../extensions/config.ts";
 import { cliPath, runInject } from "../extensions/hooks.ts";
 import { detectMcp } from "../extensions/status.ts";
@@ -100,30 +101,44 @@ describe("extension factory", () => {
     expect(result).toBeUndefined();
   });
 
-  test("/evolver run reports a missing CLI instead of throwing", async () => {
-    // An install root without bin/evolver.js (or index.js) resolves to no CLI,
-    // so the run branch must report and return rather than spawn anything.
-    const fakeRoot = mkdtempSync(path.join(tmpdir(), "evolver-omp-root-"));
-    writeFileSync(
-      path.join(fakeRoot, "package.json"),
-      JSON.stringify({ name: "@evomap/evolver", version: "0.0.0" }),
-    );
-    const hadRoot = process.env.EVOLVER_ROOT;
+  test("/evolver run explains the v2 one-shot removal instead of spawning the v1 shim", async () => {
+    const { pi, commandHandlers } = stubPi();
+    factory(pi);
     const notices: string[] = [];
-    try {
-      process.env.EVOLVER_ROOT = fakeRoot;
-      const { pi, commandHandlers } = stubPi();
-      factory(pi);
-      await commandHandlers["evolver"]("run", {
-        cwd: PKG,
-        ui: { notify: (text: string) => notices.push(text) },
-      });
-    } finally {
-      if (hadRoot) process.env.EVOLVER_ROOT = hadRoot;
-      else delete process.env.EVOLVER_ROOT;
-      rmSync(fakeRoot, { recursive: true, force: true });
-    }
-    expect(notices.join("\n")).toContain("CLI not found");
+    await commandHandlers["evolver"]("run", {
+      cwd: PKG,
+      ui: { notify: (text: string) => notices.push(text) },
+    });
+    const text = notices.join("\n");
+    // The v2 replacement entry points, not "running evolution cycle...".
+    expect(text).toContain("autoexec");
+    expect(text).not.toContain("running evolution cycle");
+  });
+});
+
+describe("capability matrix", () => {
+  test("keeps every runtime's cells, including unsupported ones", () => {
+    const text = formatCapabilities([
+      {
+        runtime: "claude-code",
+        ingest: { status: "supported" },
+        inject: { status: "supported" },
+        execute: { status: "unsupported" },
+      },
+      {
+        runtime: "gemini",
+        ingest: { status: "supported" },
+        inject: { status: "unsupported" },
+        execute: { status: "experimental" },
+      },
+    ]);
+    expect(text).toContain("claude-code: ingest=supported inject=supported execute=unsupported");
+    expect(text).toContain("gemini: ingest=supported inject=unsupported execute=experimental");
+  });
+
+  test("reports a missing matrix instead of throwing", () => {
+    expect(formatCapabilities(null)).toContain("no runtime matrix");
+    expect(formatCapabilities([])).toContain("no runtime matrix");
   });
 });
 
